@@ -1,0 +1,248 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>ps2</title>
+<style type="text/css">
+body { 
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  background-color: black;
+}
+</style>
+</head>
+<body>
+<audio id="bgm" autoplay loop src="bgm.mp3"/>
+<script type="text/javascript" src="three.min.js"></script>
+<script type="text/javascript" src="TrailRenderer.js"></script>
+<script type="text/javascript">
+  const renderer = new THREE.WebGLRenderer({alpha:true});
+  renderer.setSize( window.innerWidth, window.innerHeight );
+  renderer.setClearColor( 0x201a2f, 1 );
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog( 0x201a2f, 100, 1000 );
+
+  const camera = new THREE.PerspectiveCamera(
+      15,     // Field of view
+      window.innerWidth / window.innerHeight,  // Aspect ratio
+      0.1,    // Near
+      50000   // Far
+  );
+
+  camera.position.set( 0, 0, 200 );
+  scene.add(camera);
+  
+  const light = new THREE.PointLight( 0xCCCCFF, 1 );
+  light.position.set( -1, 1, 175 );
+  scene.add( light );
+
+  const clock = new THREE.Object3D;
+  clock.position.set(-1, 0, 165);
+  scene.add(clock);
+
+  const orbContainer = new THREE.Object3D;
+  orbContainer.position.set(-1, 0, 165);
+  scene.add(orbContainer);
+
+  // tunnel
+  const innerTunnelTexture = new THREE.TextureLoader().load( "tunnel.png" );
+  innerTunnelTexture.wrapS = THREE.RepeatWrapping;
+  innerTunnelTexture.wrapT = THREE.RepeatWrapping;
+  innerTunnelTexture.repeat.set(4,4);
+
+  const outerTunnelTexture = new THREE.TextureLoader().load( "tunnel.png" );
+  outerTunnelTexture.offset.x = 0.02
+  outerTunnelTexture.wrapS = THREE.RepeatWrapping;
+  outerTunnelTexture.wrapT = THREE.RepeatWrapping;
+  outerTunnelTexture.repeat.set(3, 3);
+
+  const cylinder = new THREE.CylinderGeometry( 75, 75, 2000, 12, 1, true );
+  const tunnelMaterial = new THREE.MeshPhongMaterial({
+    color: 0x413A52,
+    bumpMap: outerTunnelTexture,
+    bumpScale: 2,
+    map: outerTunnelTexture,
+    opacity: 1.0,
+    transparent: true,
+    side: THREE.BackSide
+  });
+  
+  const tunnel = new THREE.Mesh( cylinder, tunnelMaterial );
+  tunnel.rotation.x = 1.56;
+  tunnel.position.set(-30, 0, -400);
+  scene.add( tunnel );
+
+
+  const cylinder2 = new THREE.CylinderGeometry( 74, 74, 2000, 12, 1, true );
+  const tunnelMaterial2 = tunnelMaterial.clone();
+  tunnelMaterial2.bumpMap = innerTunnelTexture;
+  tunnelMaterial2.map = innerTunnelTexture;
+  tunnelMaterial2.opacity = 0.5;
+
+  const tunnel2 = new THREE.Mesh( cylinder2, tunnelMaterial2 );
+  tunnel2.rotation.x = 1.56;
+  tunnel2.position.set(-30, 0, -400);
+  scene.add( tunnel2 );
+
+  const colorCycle = [
+    new THREE.Color(0x11247B),
+    new THREE.Color(0x15599D),
+    new THREE.Color(0x403360)
+  ];
+
+  const pillarTexture = new THREE.TextureLoader().load( "pillar.png" );
+  pillarTexture.wrapS = THREE.RepeatWrapping;
+  pillarTexture.wrapT = THREE.RepeatWrapping;
+  pillarTexture.repeat.set(4, 4);
+  const pillarMaterial = new THREE.MeshPhongMaterial({
+    color: colorCycle[0],
+    bumpMap: pillarTexture,
+    bumpScale: 0.0025,
+    specularMap: pillarTexture,
+    shininess: 80,
+    transparent: true,
+    opacity: 0.5,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide
+  });
+
+  const litPillarMaterial = pillarMaterial.clone();
+  litPillarMaterial.color = new THREE.Color(0x14BFCD);
+  litPillarMaterial.opacity = 0.4;
+
+  const loader = new THREE.JSONLoader;
+  const pillars = [];
+  loader.load(
+    'pillar.json',
+    function ( object ) {
+      for (let i = 0; i < 12; i++ ) {
+        const pivot = new THREE.Object3D;
+        pivot.rotation.z = 0 - i * Math.PI / 6;
+        
+        const pillar = new THREE.Mesh( object, pillarMaterial );
+        pillar.position.set(0, 2.75, 0);
+        pillars.push(pillar);
+
+        clock.add(pivot);
+        pivot.add(pillar);
+        
+      }
+    },
+    undefined,
+    function ( error ) {
+      console.error(error);
+    }
+  );
+
+  const spriteLoader = new THREE.TextureLoader();
+  const orbs = [];
+  const trails = [];
+  spriteLoader.load(
+    "orb.png",
+    function ( spriteMap ) {
+      for (let i = 0; i < 7; i++ ) {
+        const pivot = new THREE.Object3D;
+        pivot.rotation.z = i * Math.PI / 3.5;
+        
+        var spriteMaterial = new THREE.SpriteMaterial( { map: spriteMap, color: 0xffffff, blending: THREE.AdditiveBlending } );
+        var orb = new THREE.Sprite( spriteMaterial );
+
+        orb.position.set(0, 1.6, 0);
+        orbs.push(pivot);
+
+        const light = new THREE.PointLight( 0xaaaaff, 1 );
+        orb.add( light );
+
+        orbContainer.add(pivot);
+        pivot.add(orb);
+
+        var trailHeadGeometry = [];
+        trailHeadGeometry.push( 
+          new THREE.Vector3( -0.015, 0.0, 0.0 ), 
+          new THREE.Vector3( 0.0, 0.0, 0.0 ), 
+          new THREE.Vector3( 0.015, 0.0, 0.0 ) 
+        );
+
+        // create the trail renderer object
+        var trail = new THREE.TrailRenderer( scene, false );
+
+        // create material for the trail renderer
+        var trailMaterial = THREE.TrailRenderer.createBaseMaterial();	
+        trailMaterial.uniforms.headColor.value.set( 0.7, 0.7, 1.0, 0.3 );
+        trailMaterial.uniforms.tailColor.value.set( 0.0, 0.0, 1.0, 0.0 );
+
+        // specify length of trail
+        var trailLength = 200;
+
+        // initialize the trail
+        trail.initialize( trailMaterial, trailLength, false, 0, trailHeadGeometry, orb );
+        trail.activate();
+        trails.push(trail);
+      }
+    },
+    undefined,
+    function ( error ) {
+      console.error(error);
+    }  
+  );
+
+  document.body.appendChild( renderer.domElement );
+  renderer.domElement.id = "ps2";
+ 
+  let t = performance.now();
+  function animate() {
+    requestAnimationFrame( animate );
+
+    let dt = (performance.now() - t) / 1000;
+    t = performance.now();
+    
+    let time = Date.now() % 30000 / 30000;
+    time = (time * 1) % 1.0; // speedup!
+    const currentHourIdx = new Date().getHours() % 12;
+
+    // crystal color fade
+    let colorTime = t % (10000*colorCycle.length) / 10000;
+    const colorIndex = Math.floor(colorTime);
+    const newColor = colorCycle[colorIndex].clone();
+    //console.log(colorIndex, (colorIndex+1)%3, colorTime % 1.0);
+    pillarMaterial.color = newColor.lerp(colorCycle[(colorIndex+1) % 3], colorTime % 1.0)
+
+    // tunnel texture moving
+    innerTunnelTexture.offset.y = (innerTunnelTexture.offset.y - dt * 0.024) % 1
+    outerTunnelTexture.offset.y = (outerTunnelTexture.offset.y - dt * 0.004) % 1
+
+    // clock
+    let z = 2 * (Math.PI / 12) * currentHourIdx;
+    clock.setRotationFromAxisAngle(new THREE.Vector3(Math.sin(z), Math.cos(z), 0), time * Math.PI / 1.0)
+
+    // spinning crystals
+    for (let i = 0; i < pillars.length; i++) {
+      pillars[i].material = currentHourIdx === i ? litPillarMaterial : pillarMaterial;
+      pillars[i].rotation.y = time * 5 * Math.PI / 1.0;
+    }
+
+    // orb circle spin
+    orbContainer.rotation.x += dt * 1.24;
+    orbContainer.rotation.y += dt * 2.34;
+
+    // orbs spin around circle
+    for (let i = 0; i < orbs.length; i++) {
+      orbs[i].rotation.z += dt * 0.032 * i;
+      trails[i].advance();
+    }
+
+    renderer.render(scene, camera);
+  } 
+  animate();
+
+  window.onresize = function() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  };
+</script>
+</body>
+</html>
+  
